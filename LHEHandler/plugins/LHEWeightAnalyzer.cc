@@ -4,7 +4,7 @@
 #include <string>
 #include <cctype>
 
-#include <FWCore/Framework/interface/EDAnalyzer.h>
+#include <FWCore/Framework/interface/one/EDAnalyzer.h>
 #include "FWCore/Framework/interface/Event.h"
 #include "FWCore/Framework/interface/Run.h"
 #include <FWCore/Framework/interface/MakerMacros.h>
@@ -12,6 +12,8 @@
 #include <FWCore/Utilities/interface/InputTag.h>
 #include <FWCore/MessageLogger/interface/MessageLogger.h>
 #include <FWCore/ServiceRegistry/interface/Service.h>
+#include <FWCore/Framework/interface/GetterOfProducts.h>
+#include <FWCore/Framework/interface/ProcessMatch.h>
 #include <CommonTools/UtilAlgos/interface/TFileService.h>
 
 #include <CommonLHETools/LHEHandler/interface/LHEHandler.h>
@@ -38,7 +40,7 @@ using namespace edm;
 //
 // class declaration
 //
-class LHEWeightAnalyzer : public edm::EDAnalyzer{
+class LHEWeightAnalyzer : public edm::one::EDAnalyzer<>{
 public:
 
   explicit LHEWeightAnalyzer(const edm::ParameterSet&);
@@ -76,7 +78,7 @@ protected:
 
   edm::EDGetTokenT<LHERunInfoProduct> lheRunInfoToken;
   edm::EDGetTokenT<GenEventInfoProduct> genInfoToken;
-
+  edm::GetterOfProducts<LHEEventProduct> getterOfProducts_;
 };
 
 
@@ -88,9 +90,10 @@ LHEWeightAnalyzer::LHEWeightAnalyzer(const edm::ParameterSet& pset) :
   kinMode((LHEHandler::KinematicsMode) pset.getParameter<int>("kinMode")),
   str_lhehandler_runmode(pset.getUntrackedParameter<std::string>("LHEHandlerRunMode")),
   theTreeName("weightsTree"),
-  tree(nullptr)
+  tree(nullptr),
+  getterOfProducts_(edm::ProcessMatch("*"), this)
 {
-  consumesMany<LHEEventProduct>();
+  callWhenNewProductsRegistered(getterOfProducts_);  
   lheRunInfoToken = consumes<LHERunInfoProduct, edm::InRun>(edm::InputTag("externalLHEProducer"));
   genInfoToken = consumes<GenEventInfoProduct>(edm::InputTag("generator"));
 
@@ -151,7 +154,7 @@ LHEWeightAnalyzer::~LHEWeightAnalyzer(){
 void LHEWeightAnalyzer::analyze(const edm::Event& event, const edm::EventSetup& eSetup){
   // LHE information
   std::vector<edm::Handle<LHEEventProduct> > lhe_handles;
-  event.getManyByType(lhe_handles);
+  getterOfProducts_.fillHandles(event, lhe_handles);
   
   edm::Handle<GenEventInfoProduct> gen_handle;
   event.getByToken(genInfoToken, gen_handle);
